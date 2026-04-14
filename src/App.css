@@ -1,0 +1,262 @@
+.app-shell {
+  width: min(1180px, 94vw);
+  margin: 0 auto;
+  padding: 2.4rem 0 3rem;
+  display: grid;
+  gap: 1.2rem;
+}
+
+.hero {
+  background:
+    radial-gradient(circle at 80% 90%, rgba(109, 89, 255, 0.34), transparent),
+    /* radial-gradient(circle at 92% 0%, rgba(72, 177, 255, 0.26), transparent 36%), */
+    linear-gradient(135deg, rgba(24, 19, 53, 0.96), rgba(13, 23, 58, 0.94));
+  border: 1px solid #4c3ea4;
+  border-radius: 24px;
+  padding: 1.8rem 2rem;
+  box-shadow: 0 22px 36px -26px rgba(4, 8, 32, 0.75);
+  animation: rise-in 0.55s ease-out;
+}
+
+.eyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  font-size: 0.74rem;
+  color: #98c4ff;
+}
+
+.hero h1 {
+  margin: 0.2rem 0 0.4rem;
+  font-size: clamp(2rem, 4vw, 3rem);
+  line-height: 1;
+}
+
+.hero-copy {
+  max-width: 72ch;
+  margin: 0;
+  color: #ccdafd;
+}
+
+.panel {
+  background: linear-gradient(150deg, rgba(19, 26, 66, 0.9), rgba(12, 20, 56, 0.88));
+  border-radius: 18px;
+  border: 1px solid #2e3c85;
+  padding: 1.1rem;
+  box-shadow: 0 18px 30px -24px rgba(3, 8, 29, 0.72);
+}
+
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.8rem;
+}
+
+.section-head h2,
+.panel h2 {
+  margin: 0;
+}
+
+.field-grid {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+}
+
+label {
+  display: grid;
+  gap: 0.28rem;
+  font-weight: 600;
+  color: #c4d3ff;
+}
+
+input,
+select {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #34479b;
+  border-radius: 10px;
+  padding: 0.48rem 0.58rem;
+  font-size: 0.95rem;
+  font-family: var(--font-mono);
+  color: #e6edff;
+  background: #0f1a4a;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+input:focus,
+select:focus {
+  border-color: #76a8ff;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(90, 131, 255, 0.28);
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.55rem;
+}
+
+button {
+  border: 1px solid #4b79ff;
+  background: linear-gradient(140deg, #4660f2, #4d97ff);
+  color: #eef3ff;
+  border-radius: 10px;
+  padding: 0.46rem 0.72rem;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.16s ease, background-color 0.16s ease;
+}
+
+button:hover {
+  background: linear-gradient(140deg, #5670ff, #5aa5ff);
+  transform: translateY(-1px);
+}
+
+button.danger {
+  border-color: #a244d5;
+  background: linear-gradient(145deg, #7f35ba, #a94fd9);
+}
+
+button.danger:hover {
+  background: linear-gradient(145deg, #9041c9, #b15be1);
+}
+
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid #2d3d83;
+  border-radius: 12px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 800px;
+}
+
+th,
+td {
+  border-bottom: 1px solid #2a3978;
+  padding: 0.6rem;
+  text-align: left;
+}
+
+th {
+  font-size: 0.84rem;
+  color: #9fb9ff;
+  background: #121f54;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+td {
+  color: #e3eaff;
+}
+
+.chart-frame {
+  background: #fffefb;
+  border: 1px solid #e8dfcd;
+  border-radius: 16px;
+  padding: 0.25rem;
+  overflow: hidden;
+}
+
+svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  font-family: sans-serif;
+}
+
+.grid-line {
+  stroke: #dbcdb4;
+  stroke-width: 1;
+  stroke-opacity: 0.55;
+}
+
+.axis-line {
+  stroke: #3f3728;
+  stroke-width: 1.6;
+}
+
+.fit-line {
+  stroke: #d04d16;
+  stroke-width: 2.8;
+  stroke-dasharray: 10 6;
+}
+
+.error-bar {
+  stroke: #1c3029;
+  stroke-width: 1.5;
+}
+
+.point {
+  fill: #f08f27;
+  stroke: #743d00;
+  stroke-width: 1.2;
+}
+
+.plot-title {
+  fill: #231e15;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.tick-text {
+  fill: #4b4235;
+  font-size: 0.78rem;
+  font-family: 'SFMono-Regular', Menlo, monospace;
+}
+
+.axis-label {
+  fill: #312a20;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.equation {
+  fill: #453825;
+  font-size: 0.8rem;
+  font-family: 'SFMono-Regular', Menlo, monospace;
+}
+
+.empty-state {
+  margin: 0;
+  color: #b7c6f8;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 900px) {
+  .app-shell {
+    width: min(100%, 96vw);
+    padding-top: 1rem;
+  }
+
+  .hero {
+    padding: 1.2rem;
+  }
+
+  .field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .section-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
