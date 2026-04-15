@@ -341,7 +341,7 @@ function App() {
       .fit-line {
         stroke: #d04d16;
         stroke-width: 2.8;
-        stroke-dasharray: 10 6;
+        stroke-dasharray: 2.8 2.8;
       }
 
       .error-bar {
@@ -351,8 +351,6 @@ function App() {
 
       .point {
         fill: #f08f27;
-        stroke: #743d00;
-        stroke-width: 1.2;
       }
 
       .plot-title {
@@ -364,7 +362,7 @@ function App() {
       .tick-text {
         fill: #4b4235;
         font-size: 0.78rem;
-        font-family: 'SFMono-Regular', Menlo, monospace;
+        font-family: sans-serif;
       }
 
       .axis-label {
@@ -376,7 +374,7 @@ function App() {
       .equation {
         fill: #453825;
         font-size: 0.8rem;
-        font-family: 'SFMono-Regular', Menlo, monospace;
+        font-family: sans-serif;
       }
     `
     clonedSvg.insertBefore(exportStyle, clonedSvg.firstChild)
