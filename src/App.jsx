@@ -508,8 +508,7 @@ function App() {
         <p className="eyebrow">PHYS 12X Lab Graph Generator</p>
         <h1>12xGraph</h1>
         <p className="hero-copy">
-          Enter your experimental data, uncertainties, and trial measurements to
-          generate a scatter plot with propagated error bars and a best-fit line.
+          Generate a 12X-style scatter plot with a title, axis labels, error bars, and a best-fit line.
         </p>
         <br></br>
         <a href="https://faletto.github.io"><button>Made by  <i class="fa-brands fa-github" /> /faletto</button></a>
@@ -517,8 +516,7 @@ function App() {
 
       <section className="panel inputs-panel" aria-label="Experiment inputs">
         <h2>Experiment Setup</h2>
-        <div className="field-grid">
-          <label>
+        <label>
             Experiment Title
             <input
               value={experimentTitle}
@@ -526,6 +524,8 @@ function App() {
               placeholder="e.g. Pendulum Period vs Length"
             />
           </label>
+        <div className="field-grid">
+          
           <label>
             Independent Variable Name
             <input
