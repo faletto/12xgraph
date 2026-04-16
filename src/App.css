@@ -73,6 +73,11 @@ label {
   color: #c4d3ff;
 }
 
+.outside-grid {
+ margin-top: 10px;
+ margin-bottom: 10px;
+}
+
 input,
 select {
   width: 100%;
@@ -113,6 +118,15 @@ button {
   transition: transform 0.16s ease, background-color 0.16s ease;
 }
 
+.copy-button {
+  background: linear-gradient(140deg, #1f8f2c, #42b450);
+  border: 1px solid #165f1f;
+}
+
+.copy-button:hover {
+  background: linear-gradient(140deg,  #229c30, #47c356);
+}
+
 button:hover {
   background: linear-gradient(140deg, #5670ff, #5aa5ff);
   transform: translateY(-1px);
@@ -133,6 +147,12 @@ button.danger:hover {
   border-radius: 12px;
 }
 
+.table-help {
+  margin: 0 0 0.6rem;
+  color: #b6c9ff;
+  font-size: 0.9rem;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -144,6 +164,7 @@ td {
   border-bottom: 1px solid #2a3978;
   padding: 0.6rem;
   text-align: left;
+  white-space: nowrap;
 }
 
 th {
@@ -156,6 +177,31 @@ th {
 
 td {
   color: #e3eaff;
+}
+
+.row-index {
+  width: 52px;
+  color: #98b6ff;
+  font-weight: 700;
+  text-align: center;
+  font-family: var(--font-mono);
+}
+
+.average-cell {
+  min-width: 110px;
+}
+
+.average-output {
+  background: #10245b;
+  border-color: #4b63ba;
+  color: #cfe0ff;
+  font-weight: 700;
+  cursor: default;
+}
+
+.average-output:focus {
+  box-shadow: none;
+  border-color: #4b63ba;
 }
 
 .chart-frame {

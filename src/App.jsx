@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import './App.css'
 
 
-const INITIAL_TRIALS = 2
+const INITIAL_TRIALS = 1
 
 let embeddedExportFontCssPromise = null
 
@@ -61,6 +61,62 @@ function linearRegression(points) {
     slope,
     intercept,
     rSquared: ssTot === 0 ? 1 : 1 - ssRes / ssTot,
+  }
+}
+
+function countPointsSupportedByLine(points, predictY) {
+  return points.reduce((count, point) => {
+    const tolerance = Math.max(point.yError ?? 0, Number.EPSILON)
+    const predictedY = predictY(point.x)
+    return count + (Math.abs(point.y - predictedY) <= tolerance ? 1 : 0)
+  }, 0)
+}
+
+function analyzeRelationship(points, fit) {
+  const totalPoints = points.length
+  const requiredHits = Math.ceil((2 * totalPoints) / 3)
+
+  if (totalPoints === 0) {
+    return {
+      totalPoints,
+      requiredHits,
+      linear: false,
+      linearHits: 0,
+      proportional: false,
+      proportionalHits: 0,
+    }
+  }
+
+  const proportionalDenominator = points.reduce((sum, point) => sum + point.x ** 2, 0)
+  const proportionalSlope =
+    proportionalDenominator === 0
+      ? 0
+      : points.reduce((sum, point) => sum + point.x * point.y, 0) / proportionalDenominator
+  const proportionalHits = countPointsSupportedByLine(points, (x) => proportionalSlope * x)
+
+  if (!fit) {
+    return {
+      totalPoints,
+      requiredHits,
+      linear: false,
+      linearHits: 0,
+      proportional: proportionalHits >= requiredHits,
+      proportionalHits,
+    }
+  }
+
+  const linearHits = countPointsSupportedByLine(
+    points,
+    (x) => fit.slope * x + fit.intercept,
+  )
+
+  return {
+    totalPoints,
+    requiredHits,
+    linear: linearHits >= requiredHits,
+    linearHits,
+    proportional: proportionalHits >= requiredHits,
+    proportionalHits,
   }
 }
 
@@ -132,6 +188,149 @@ function resizeTrials(trials, targetLength) {
   return Array.from({ length: targetLength }, (_, index) => trials[index] ?? '')
 }
 
+function transformDependentValue(value, transform) {
+  switch (transform) {
+    case 'square':
+      return value ** 2
+    case 'sqrt':
+      return value >= 0 ? Math.sqrt(value) : null
+    case 'inverse':
+      return value === 0 ? null : 1 / value
+    case 'ln':
+      return value > 0 ? Math.log(value) : null
+    case 'none':
+    default:
+      return value
+  }
+}
+
+function transformDependentUncertainty(value, uncertainty, transform) {
+  switch (transform) {
+    case 'square':
+      return Math.abs(2 * value) * uncertainty
+    case 'sqrt':
+      return value > 0 ? uncertainty / (2 * Math.sqrt(value)) : null
+    case 'inverse':
+      return value === 0 ? null : uncertainty / (Math.abs(value) ** 2)
+    case 'ln':
+      return value > 0 ? uncertainty / Math.abs(value) : null
+    case 'none':
+    default:
+      return uncertainty
+  }
+}
+
+function transformedDependentLabel(name, transform) {
+  const baseLabel = name || 'Dependent Variable'
+
+  switch (transform) {
+    case 'square':
+      return `(${baseLabel})^2`
+    case 'sqrt':
+      return `sqrt(${baseLabel})`
+    case 'inverse':
+      return `1 / (${baseLabel})`
+    case 'ln':
+      return `ln(${baseLabel})`
+    case 'none':
+    default:
+      return baseLabel
+  }
+}
+
+function transformedDependentUnits(units, transform) {
+  if (!units) {
+    return units
+  }
+
+  switch (transform) {
+    case 'square':
+      return `${units}²`
+    case 'sqrt':
+      return `√${units}`
+    case 'inverse':
+      return `1/${units}`
+    case 'ln':
+      return `ln(${units})`
+    case 'none':
+    default:
+      return units
+  }
+}
+
+function parseClipboardTable(clipboardText) {
+  return clipboardText
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .split('\n')
+    .filter((line) => line.trim().length > 0)
+    .map((line) => line.split('\t'))
+}
+
+function rowAverage(trials) {
+  const numericValues = trials
+    .map((trial) => parseNumber(trial))
+    .filter((value) => value !== null)
+
+  if (numericValues.length === 0) {
+    return null
+  }
+
+  return numericValues.reduce((sum, value) => sum + value, 0) / numericValues.length
+}
+
+function rowSummary(trials, instrumentalUncertainty, transform) {
+  const numericValues = trials
+    .map((trial) => parseNumber(trial))
+    .filter((value) => value !== null)
+
+  if (numericValues.length === 0) {
+    return null
+  }
+
+  const mean = rowAverage(trials)
+  const stdev = sampleStandardDeviation(numericValues)
+  const baseUncertainty = Math.max(instrumentalUncertainty, stdev)
+  const average = transformDependentValue(mean, transform)
+
+  if (average === null) {
+    return null
+  }
+
+  const uncertainty = transformDependentUncertainty(mean, baseUncertainty, transform)
+
+  if (uncertainty === null || !Number.isFinite(uncertainty)) {
+    return null
+  }
+
+  return {
+    average,
+    uncertainty,
+  }
+}
+
+function copyTextToClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    return navigator.clipboard.writeText(text)
+  }
+
+  const textarea = document.createElement('textarea')
+  textarea.value = text
+  textarea.setAttribute('readonly', 'true')
+  textarea.style.position = 'fixed'
+  textarea.style.opacity = '0'
+  document.body.appendChild(textarea)
+  textarea.select()
+
+  try {
+    document.execCommand('copy')
+  } finally {
+    document.body.removeChild(textarea)
+  }
+
+  return Promise.resolve()
+}
+
 function sanitizeFileName(value) {
   const trimmed = value.trim()
 
@@ -150,18 +349,19 @@ function sanitizeFileName(value) {
 function App() {
   const [experimentTitle, setExperimentTitle] = useState('Experiment Title')
   const [independentName, setIndependentName] = useState('Independent Variable')
+  const [independentUnits, setIndependentUnits] = useState('')
   const [dependentName, setDependentName] = useState('Dependent Variable')
-  const [independentUncertainty, setIndependentUncertainty] = useState('0.1')
-  const [dependentUncertainty, setDependentUncertainty] = useState('0.1')
+  const [dependentUnits, setDependentUnits] = useState('')
+  const [independentUncertainty, setIndependentUncertainty] = useState('0')
+  const [dependentUncertainty, setDependentUncertainty] = useState('0')
   const [xAxisMinimum, setXAxisMinimum] = useState('0')
   const [yAxisMinimum, setYAxisMinimum] = useState('0')
   const [equationHorizontal, setEquationHorizontal] = useState('center')
   const [equationVertical, setEquationVertical] = useState('top')
+  const [dependentTransform, setDependentTransform] = useState('none')
   const [trialCount, setTrialCount] = useState(INITIAL_TRIALS)
   const [rows, setRows] = useState([
-    { independent: '1', trials: ['2.1', '2.0'] },
-    { independent: '2', trials: ['4.1', '3.9'] },
-    { independent: '3', trials: ['6.1', '5.8'] },
+    { independent: '1', trials: ['1.0'] },
   ])
   const svgRef = useRef(null)
 
@@ -172,24 +372,18 @@ function App() {
     const points = rows
       .map((row, rowIndex) => {
         const x = parseNumber(row.independent)
-        const trialValues = row.trials
-          .map((trial) => parseNumber(trial))
-          .filter((value) => value !== null)
+        const summary = rowSummary(row.trials, yInstrumental, dependentTransform)
 
-        if (x === null || trialValues.length === 0) {
+        if (x === null || summary === null) {
           return null
         }
-
-        const meanY =
-          trialValues.reduce((sum, value) => sum + value, 0) / trialValues.length
-        const stdev = sampleStandardDeviation(trialValues)
 
         return {
           id: rowIndex,
           x,
-          y: meanY,
+          y: summary.average,
           xError: Math.max(0, xInstrumental),
-          yError: Math.max(yInstrumental, stdev),
+          yError: Math.max(0, summary.uncertainty),
         }
       })
       .filter((point) => point !== null)
@@ -200,7 +394,53 @@ function App() {
       points,
       fit,
     }
-  }, [rows, independentUncertainty, dependentUncertainty])
+  }, [rows, independentUncertainty, dependentUncertainty, dependentTransform])
+
+  const isLinearized = dependentTransform !== 'none'
+  const averageColumnLabel = isLinearized ? 'Linearized Average' : 'Average'
+  const uncertaintyColumnLabel = isLinearized ? 'Linearized Uncertainty' : 'Uncertainty'
+
+  const dependentAxisLabel = useMemo(
+    () => transformedDependentLabel(dependentName, dependentTransform),
+    [dependentName, dependentTransform],
+  )
+
+  const transformedUnits = useMemo(
+    () => transformedDependentUnits(dependentUnits, dependentTransform),
+    [dependentUnits, dependentTransform],
+  )
+
+  const copyTableData = async () => {
+    const independentLabel = independentName || 'Independent Variable'
+    const independentLabelWithUnits = independentUnits ? `${independentLabel} (${independentUnits})` : independentLabel
+    const dependentLabel = dependentName || 'Dependent'
+    
+    const exportRows = [
+      [
+        independentLabelWithUnits,
+        ...Array.from({ length: trialCount }, (_, index) => `${dependentLabel} Trial ${index + 1}`),
+        averageColumnLabel,
+        uncertaintyColumnLabel,
+      ],
+      ...rows.map((row, rowIndex) => {
+        const summary = rowSummary(
+          row.trials,
+          parseNumber(dependentUncertainty) ?? 0,
+          dependentTransform,
+        )
+
+        return [
+          row.independent,
+          ...Array.from({ length: trialCount }, (_, trialIndex) => row.trials[trialIndex] ?? ''),
+          summary === null ? '' : formatNumber(summary.average),
+          summary === null ? '' : formatNumber(summary.uncertainty),
+        ]
+      }),
+    ]
+
+    const clipboardText = exportRows.map((cells) => cells.join('\t')).join('\n')
+    await copyTextToClipboard(clipboardText)
+  }
 
   const chart = useMemo(() => {
     const { points } = processed
@@ -264,6 +504,11 @@ function App() {
     }
   }, [processed, xAxisMinimum, yAxisMinimum])
 
+  const relationship = useMemo(
+    () => analyzeRelationship(processed.points, processed.fit),
+    [processed.points, processed.fit],
+  )
+
   const equationText = useMemo(() => {
     if (!processed.fit) {
       return 'Need at least two valid data points for a best-fit line.'
@@ -295,6 +540,24 @@ function App() {
       y: yOptions[equationVertical],
     }
   }, [equationHorizontal, equationVertical])
+
+  const relationshipText = useMemo(() => {
+    if (relationship.totalPoints === 0) {
+      return 'Relationship check unavailable until there are valid data points.'
+    }
+
+    const linearText = relationship.linear
+      ? `Linear: yes (${relationship.linearHits}/${relationship.totalPoints})`
+      : processed.fit
+        ? `Linear: no (${relationship.linearHits}/${relationship.totalPoints})`
+        : 'Linear: no best-fit line available'
+
+    const proportionalText = relationship.proportional
+      ? `Proportional: yes (${relationship.proportionalHits}/${relationship.totalPoints})`
+      : `Proportional: no (${relationship.proportionalHits}/${relationship.totalPoints})`
+
+    return `${linearText}; ${proportionalText}`
+  }, [processed.fit, relationship])
 
   const downloadChartAsPng = async () => {
     if (!chart || !svgRef.current) {
@@ -502,6 +765,79 @@ function App() {
     )
   }
 
+  const applyPastedTable = (startRow, startColumn, matrix) => {
+    if (matrix.length === 0) {
+      return
+    }
+
+    const maxRowNeeded = startRow + matrix.length
+    let maxTrialColumnNeeded = trialCount
+
+    matrix.forEach((cells) => {
+      cells.forEach((_, offsetColumn) => {
+        const targetColumn = startColumn + offsetColumn
+        if (targetColumn >= 1) {
+          maxTrialColumnNeeded = Math.max(maxTrialColumnNeeded, targetColumn)
+        }
+      })
+    })
+
+    setTrialCount(maxTrialColumnNeeded)
+
+    setRows((currentRows) => {
+      const nextRows = [...currentRows]
+      while (nextRows.length < maxRowNeeded) {
+        nextRows.push(emptyRow(maxTrialColumnNeeded))
+      }
+
+      for (let rowIndex = 0; rowIndex < nextRows.length; rowIndex += 1) {
+        nextRows[rowIndex] = {
+          ...nextRows[rowIndex],
+          trials: resizeTrials(nextRows[rowIndex].trials, maxTrialColumnNeeded),
+        }
+      }
+
+      matrix.forEach((cells, offsetRow) => {
+        const targetRow = startRow + offsetRow
+        if (!nextRows[targetRow]) {
+          return
+        }
+
+        const nextRow = { ...nextRows[targetRow], trials: [...nextRows[targetRow].trials] }
+
+        cells.forEach((rawValue, offsetColumn) => {
+          const targetColumn = startColumn + offsetColumn
+          const value = rawValue.trim()
+
+          if (targetColumn === 0) {
+            nextRow.independent = value
+          } else {
+            nextRow.trials[targetColumn - 1] = value
+          }
+        })
+
+        nextRows[targetRow] = nextRow
+      })
+
+      return nextRows
+    })
+  }
+
+  const handleCellPaste = (rowIndex, columnIndex, event) => {
+    const clipboardText = event.clipboardData?.getData('text/plain') ?? ''
+    const matrix = parseClipboardTable(clipboardText)
+
+    if (
+      matrix.length <= 1 &&
+      (matrix[0]?.length ?? 0) <= 1
+    ) {
+      return
+    }
+
+    event.preventDefault()
+    applyPastedTable(rowIndex, columnIndex, matrix)
+  }
+
   return (
     <main className="app-shell">
       <header className="hero">
@@ -516,7 +852,7 @@ function App() {
 
       <section className="panel inputs-panel" aria-label="Experiment inputs">
         <h2>Experiment Setup</h2>
-        <label>
+        <label className="outside-grid">
             Experiment Title
             <input
               value={experimentTitle}
@@ -531,7 +867,31 @@ function App() {
             <input
               value={independentName}
               onChange={(event) => setIndependentName(event.target.value)}
-              placeholder="e.g. Length (m)"
+              placeholder="e.g. Length"
+            />
+          </label>
+          <label>
+            Dependent Variable Name
+            <input
+              value={dependentName}
+              onChange={(event) => setDependentName(event.target.value)}
+              placeholder="e.g. Period"
+            />
+          </label>
+          <label>
+            Independent Variable Units
+            <input
+              value={independentUnits}
+              onChange={(event) => setIndependentUnits(event.target.value)}
+              placeholder="e.g. m"
+            />
+          </label>
+          <label>
+            Dependent Variable Units
+            <input
+              value={dependentUnits}
+              onChange={(event) => setDependentUnits(event.target.value)}
+              placeholder="e.g. s"
             />
           </label>
           <label>
@@ -540,14 +900,6 @@ function App() {
               value={independentUncertainty}
               onChange={(event) => setIndependentUncertainty(event.target.value)}
               placeholder="e.g. 0.01"
-            />
-          </label>
-          <label>
-            Dependent Variable Name
-            <input
-              value={dependentName}
-              onChange={(event) => setDependentName(event.target.value)}
-              placeholder="e.g. Period (s)"
             />
           </label>
           <label>
@@ -597,69 +949,122 @@ function App() {
             </select>
           </label>
         </div>
+         <label className="outside-grid">
+            Linearize Dependent Variable
+            <select
+              value={dependentTransform}
+              onChange={(event) => setDependentTransform(event.target.value)}
+            >
+              <option value="none">None</option>
+              <option value="square">Square (y^2)</option>
+              <option value="sqrt">Square Root (sqrt(y))</option>
+              <option value="inverse">Inverse (1/y)</option>
+              <option value="ln">Natural Log (ln(y))</option>
+            </select>
+          </label>
       </section>
 
       <section className="panel" aria-label="Data entry table">
         <div className="section-head">
           <h2>Data Table</h2>
           <div className="button-row">
+            <button type="button" className='copy-button' onClick={copyTableData}>
+              <i class="fa-solid fa-copy"></i> Copy Table
+            </button>
             <button type="button" onClick={addTrialColumn}>
-              Add Trial Column
+              <i class="fa-solid fa-plus"></i> Add Trial Column
             </button>
             <button type="button" onClick={removeTrialColumn}>
-              Remove Trial Column
+              <i class="fa-solid fa-minus"></i> Remove Trial Column
             </button>
             <button type="button" onClick={addRow}>
-              Add Data Row
+              <i class="fa-solid fa-arrow-down"></i> Add Data Row
             </button>
           </div>
         </div>
+
+        <p className="table-help">
+          Paste from Excel/Sheets directly into any cell. The table expands automatically.
+        </p>
 
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>{independentName || 'Independent Variable'}</th>
+                <th>{independentUnits ? `${independentName || 'Independent Variable'} (${independentUnits})` : independentName || 'Independent Variable'}</th>
                 {Array.from({ length: trialCount }, (_, index) => (
                   <th key={index}>{dependentName || 'Dependent'} Trial {index + 1}</th>
                 ))}
+                <th>{averageColumnLabel}</th>
+                <th>{uncertaintyColumnLabel}</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((row, rowIndex) => (
-                <tr key={rowIndex}>
-                  <td>
-                    <input
-                      value={row.independent}
-                      onChange={(event) =>
-                        updateIndependent(rowIndex, event.target.value)
-                      }
-                      placeholder="x"
-                    />
-                  </td>
-                  {Array.from({ length: trialCount }, (_, trialIndex) => (
-                    <td key={trialIndex}>
+              {rows.map((row, rowIndex) => {
+                const summary = rowSummary(
+                  row.trials,
+                  parseNumber(dependentUncertainty) ?? 0,
+                  dependentTransform,
+                )
+
+                return (
+                  <tr key={rowIndex}>
+                    <td>
                       <input
-                        value={row.trials[trialIndex] ?? ''}
+                        value={row.independent}
                         onChange={(event) =>
-                          updateTrial(rowIndex, trialIndex, event.target.value)
+                          updateIndependent(rowIndex, event.target.value)
                         }
-                        placeholder="y"
+                        onPaste={(event) => handleCellPaste(rowIndex, 0, event)}
+                        placeholder="x"
                       />
                     </td>
-                  ))}
-                  <td>
-                    <button
-                      type="button"
-                      className="danger"
-                      onClick={() => removeRow(rowIndex)}
-                    >
-                      Remove
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                    {Array.from({ length: trialCount }, (_, trialIndex) => (
+                      <td key={trialIndex}>
+                        <input
+                          value={row.trials[trialIndex] ?? ''}
+                          onChange={(event) =>
+                            updateTrial(rowIndex, trialIndex, event.target.value)
+                          }
+                          onPaste={(event) => handleCellPaste(rowIndex, trialIndex + 1, event)}
+                          placeholder="y"
+                        />
+                      </td>
+                    ))}
+                    <td className="average-cell">
+                      <input
+                        className="average-output"
+                        value={summary === null ? '' : formatNumber(summary.average)}
+                        readOnly
+                        tabIndex={-1}
+                        aria-label={`${averageColumnLabel} for row ${rowIndex + 1}`}
+                        placeholder="-"
+                      />
+                    </td>
+                    <td className="average-cell">
+                      <input
+                        className="average-output"
+                        value={summary === null ? '' : formatNumber(summary.uncertainty)}
+                        readOnly
+                        tabIndex={-1}
+                        aria-label={`${uncertaintyColumnLabel} for row ${rowIndex + 1}`}
+                        placeholder="-"
+                      />
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className="danger"
+                        onClick={() => removeRow(rowIndex)}
+                      >
+
+                      <i class="fa-solid fa-trash"></i>  Remove
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -677,6 +1082,7 @@ function App() {
             </button>
           </div>
         </div>
+        <p className="table-help">{relationshipText}</p>
 
         {chart ? (
           <div className="chart-frame">
@@ -840,14 +1246,14 @@ function App() {
                 textAnchor="middle"
                 className="axis-label"
               >
-                {independentName || 'Independent Variable'}
+                {independentUnits ? `${independentName || 'Independent Variable'} (${independentUnits})` : independentName || 'Independent Variable'}
               </text>
               <text
                 transform={`translate(24 ${(chart.height + chart.margin.top - chart.margin.bottom) / 2}) rotate(-90)`}
                 textAnchor="middle"
                 className="axis-label"
               >
-                {dependentName || 'Dependent Variable'}
+                {transformedUnits ? `${dependentAxisLabel} (${transformedUnits})` : dependentAxisLabel}
               </text>
             </svg>
           </div>
